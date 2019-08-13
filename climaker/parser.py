@@ -26,9 +26,6 @@ class Parser(object):
         Returns Action object with command name and its arguments.
         """
 
-        if len(args) == 0:
-            self._parser.error('No arguments specified.')
-
         parsed = self._parser.parse_args(args)
         action = _make_action(parsed)
         return action

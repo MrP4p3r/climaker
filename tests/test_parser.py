@@ -6,6 +6,11 @@ from climaker import Parser, Arg, Arguments, Subcommands
 
 class ParserTest(TestCase):
 
+    def test_no_args_parser(self):
+        parser = Parser(Arguments([]))
+        action = parser.parse_arguments([])
+        self.assertEqual(len(action.params), 0)
+
     def test_parser_flat(self):
         parser = Parser(fixture_flat_spec, prog='climaker_test')
         action = parser.parse_arguments(fixture_flat_args)
