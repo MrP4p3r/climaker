@@ -39,9 +39,6 @@ class Command:
                  description: Optional[str] = None
                  ):
 
-        if not ((arguments is None) ^ (subcommands is None)):
-            raise TypeError(f'Command must contain either arguments or subcommands: {name}')
-
         self._name = name
         self._subcommands = subcommands
         self._arguments = arguments
@@ -67,7 +64,7 @@ class Command:
     def description(self) -> Optional[str]:
         return self._description
 
-    def is_subcommands_group(self) -> bool:
+    def has_subcommands(self) -> bool:
         return self._subcommands is not None
 
 
@@ -86,7 +83,7 @@ class BaseArg:
                  ):
         self._name = name
         self._type = type_
-        self._processor = processor
+        self._processor = processor or str
         self._description = description
 
     @property
@@ -118,7 +115,7 @@ class ReducerMixin:
 
     def reducer(self, acc: Any, value: str) -> Any:
         assert self.__reducer is not None, f'Reducer is not set for {type(self).__name__}'
-        self.__reducer(acc, value)
+        return self.__reducer(acc, value)
 
 
 class ArgPos(BaseArg, ReducerMixin):
