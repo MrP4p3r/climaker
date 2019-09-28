@@ -5,6 +5,8 @@ from climaker.tokenizer import FlagToken, WordToken
 from climaker.spec import Command, ArgOpt, ArgFlag, ArgPos
 
 from .token_walker import TokenWalker
+from .parse_result import ParserResult
+from .exceptions import *
 
 
 __all__ = [
@@ -23,15 +25,39 @@ class TokenParser:
 
         self._consumed = {}
 
-    def consume(self, walker: TokenWalker):
-        while walker.lookup():
-            token = walker.next()
-            if token.into_flag_stop():
-                continue
-            elif token.into_flag():
-                self.consume_flag(token.into_flag(), walker)
-            elif token.into_word():
-                self.consume_word(token.into_word(), walker)
+    def consume(self, walker: TokenWalker) -> ParserResult:
+        try:
+            while walker.lookup():
+                token = walker.next()
+                if token.into_flag_stop():
+                    continue
+                elif token.into_flag():
+                    self.consume_flag(token.into_flag(), walker)
+                elif token.into_word():
+                    word = token.into_word()
+                    if self._command.has_subcommands():
+                        subcommand = self._get_subcommand(word.get_value())
+                        if not subcommand:
+                            raise UnknownSubcommandError(word.get_value())
+
+                        subconsumer = TokenParser(subcommand, self)
+                        subcommand_parse_result = subconsumer.consume(walker)
+                        if subcommand_parse_result.error:
+                            return ParserResult(name=self._command.name,
+                                                error=ParseSubcommandError(subcommand.name),
+                                                child=subcommand_parse_result)
+                        else:
+                            return ParserResult(name=self._command.name,
+                                                args=self._consumed,
+                                                child=subcommand_parse_result)
+                    else:
+                        self.consume_word(word, walker)
+        except TokenParserError as err:
+            return ParserResult(name=self._command.name,
+                                error=err)
+        else:
+            return ParserResult(name=self._command.name,
+                                args=self._consumed)
 
     def consume_flag(self, flag_token: FlagToken, walker: TokenWalker):
         alias = flag_token.get_name()
@@ -39,7 +65,7 @@ class TokenParser:
 
         if not flag_or_opt:
             if not self._parent:
-                raise ValueError(f'Unknown flag/option {alias!r}')
+                raise UnexpectedFlagOptError(flag_token)
             else:
                 self._parent.consume_flag(flag_token, walker)
 
@@ -50,7 +76,7 @@ class TokenParser:
                 while walker.lookup() and walker.lookup().into_flag_stop():
                     walker.next()
                 if not walker.lookup() or not walker.lookup().into_word():
-                    raise ValueError(f'Expected a value for option {alias!r} ({opt.name!r})')
+                    raise ExpectedOptionValueError(flag_token, walker.lookup())
                 word = walker.next().into_word()
                 opt_value = word.get_value()
 
@@ -62,41 +88,36 @@ class TokenParser:
         elif isinstance(flag_or_opt, ArgFlag):
             flag = flag_or_opt
             if flag_token.get_value():
-                raise ValueError(f'Unexpected value for flag {alias!r} ({flag.name!r})')
+                raise UnexpectedAssignmentError(flag_token)
 
             self._consumed[flag.name] = flag.set_value
 
         else:
-            raise TypeError('Totally unexpected error')
+            raise RuntimeError('Totally unexpected error')
 
     def consume_word(self, word: WordToken, walker: TokenWalker):
-        if self._command.has_subcommands():
-            subcommand = self._get_subcommand(word.get_value())
-            subconsumer = TokenParser(subcommand, self)
-            subconsumer.consume(walker)
-        else:
-            positional: ArgPos = self._get_current_positional()
-            if not positional:
-                raise ValueError(f'Unexpected positional argument: {word.get_value()!r}')
+        positional: ArgPos = self._get_current_positional()
+        if not positional:
+            raise UnexpectedPositionalError(word)
 
-            # if can accept args
-            try:
-                self._consumed[positional.name] = positional.reducer(
-                    self._consumed.get(positional.name),
-                    positional.processor(word.get_value())
-                )
-                return
-            except TypeError:
-                pass
-
-            positional: ArgPos = self._get_next_positional()
-            if not positional:
-                raise ValueError(f'Unexpected positional argument: {word.get_value()!r}')
-
+        # if can accept args
+        try:
             self._consumed[positional.name] = positional.reducer(
                 self._consumed.get(positional.name),
                 positional.processor(word.get_value())
             )
+            return
+        except TypeError:
+            pass
+
+        positional: ArgPos = self._get_next_positional()
+        if not positional:
+            raise UnexpectedPositionalError(word)
+
+        self._consumed[positional.name] = positional.reducer(
+            self._consumed.get(positional.name),
+            positional.processor(word.get_value())
+        )
 
     def _get_subcommand(self, name: str) -> Command:
         for subcommand in self._command.subcommands:
