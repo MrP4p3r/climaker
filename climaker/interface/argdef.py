@@ -1,4 +1,11 @@
+from abc import abstractmethod
 from typing import Any
+
+
+__all__ = [
+    'ProcessorFn',
+    'ArgReducer',
+]
 
 
 class ProcessorFn:
@@ -8,4 +15,11 @@ class ProcessorFn:
 
     """
 
+    @abstractmethod
     def __call__(self, value: str) -> Any: ...
+
+
+class ArgReducer:
+
+    @abstractmethod
+    def __call__(self, accumulator: Any, value: str) -> Any: ...

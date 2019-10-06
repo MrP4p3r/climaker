@@ -1,18 +1,12 @@
-from abc import abstractmethod
 from typing import Any
+from climaker.interface import ArgReducer
 
 
 __all__ = [
-    'ArgReducer',
     'singleargument',
     'multipleargument',
     'countargument',
 ]
-
-
-class ArgReducer:
-    @abstractmethod
-    def __call__(self, accumulator: Any, value: str) -> Any: ...
 
 
 def singleargument() -> ArgReducer:

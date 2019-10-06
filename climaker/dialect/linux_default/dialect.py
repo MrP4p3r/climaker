@@ -3,7 +3,7 @@ from typing import Iterable, List, Optional
 
 from climaker.interface import IDialect
 
-from climaker.spec import Command
+from climaker.argdef import Command
 from climaker.tokens import Token
 from climaker.util import get_words
 

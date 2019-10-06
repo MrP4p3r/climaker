@@ -3,7 +3,7 @@ from typing import Optional, Union, Sequence
 
 from climaker.interface import IParser
 from climaker.tokens import Token, FlagToken, WordToken
-from climaker.spec import Command, ArgOpt, ArgFlag, ArgPos
+from climaker.argdef import Command, ArgOpt, ArgFlag, ArgPos
 from climaker.util import Walker, into_identifier
 
 from .parse_result import ParserResult

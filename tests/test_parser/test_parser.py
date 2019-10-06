@@ -2,7 +2,7 @@ from typing import Sequence
 
 import pytest
 
-from climaker.spec import Command, ArgFlag, ArgOpt, ArgPos
+from climaker.argdef import Command, ArgFlag, ArgOpt, ArgPos
 from climaker.tokens import Token, WordToken, FlagToken
 from climaker.parser import (
     TokenParser,

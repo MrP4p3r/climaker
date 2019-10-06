@@ -6,8 +6,8 @@ from typing import (
     Iterable, Sequence, List,
 )
 
-from .processor import ProcessorFn
-from .reducer import ArgReducer, singleargument
+from climaker.interface import ProcessorFn, ArgReducer
+from .reducer import singleargument
 
 
 __all__ = [
