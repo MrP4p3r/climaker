@@ -1,4 +1,4 @@
-from climaker.tokenizer import Token, FlagToken, WordToken
+from climaker.tokens import Token, FlagToken, WordToken
 
 
 __all__ = [

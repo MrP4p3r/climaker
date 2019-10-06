@@ -1,10 +1,10 @@
 import pytest
-from climaker.tokenizer import LinuxStyleTokenizer
+from climaker.dialect.linux_default.tokenizer import DefaultLinuxTokenizer
 
 
 @pytest.fixture()
 def tokenizer():
-    return LinuxStyleTokenizer
+    return DefaultLinuxTokenizer()
 
 
 def test_flag(tokenizer):
@@ -70,10 +70,7 @@ def test_long_flag_assignment(tokenizer):
 
 def test_flag_stop(tokenizer):
     tokens = tokenizer.tokenize_single_arg('--')
-    assert len(tokens) == 1
-
-    flag_stop = tokens[0].into_flag_stop()
-    assert flag_stop
+    assert len(tokens) == 0
 
 
 def test_word(tokenizer):
@@ -86,7 +83,7 @@ def test_word(tokenizer):
 
 
 def test_flag_ish_word_after_flag_stop(tokenizer):
-    tokens = tokenizer.tokenize_single_arg('--not-a-flag', had_flag_stop=True)
+    tokens = tokenizer.tokenize_args(['--', '--not-a-flag'])
     assert len(tokens) == 1
 
     word = tokens[0].into_word()
@@ -96,7 +93,7 @@ def test_flag_ish_word_after_flag_stop(tokenizer):
 
 def test_args_full(tokenizer):
     tokens = tokenizer.tokenize_args(['--flag-a', 'word-a', '--flag-b=value-b', '-xyz=-42', '--', '-x'])
-    assert len(tokens) == 8
+    assert len(tokens) == 7
 
     # --flag-a
     assert tokens[0].into_flag().get_name() == 'flag_a'
@@ -118,8 +115,5 @@ def test_args_full(tokenizer):
     assert tokens[5].into_flag().get_name() == 'z'
     assert tokens[5].into_flag().get_value() == '-42'
 
-    # --
-    assert tokens[6].into_flag_stop()
-
     # -x
-    assert tokens[7].into_word().get_value() == '-x'
+    assert tokens[6].into_word().get_value() == '-x'

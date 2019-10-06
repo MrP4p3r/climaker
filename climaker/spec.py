@@ -40,8 +40,8 @@ class Command:
                  ):
 
         self._name = name
-        self._subcommands = subcommands
-        self._arguments = arguments
+        self._subcommands = subcommands or []
+        self._arguments = arguments or []
         self._description = description
 
     @property
@@ -65,7 +65,7 @@ class Command:
         return self._description
 
     def has_subcommands(self) -> bool:
-        return self._subcommands is not None
+        return bool(self._subcommands)
 
 
 class BaseArg:
@@ -162,9 +162,9 @@ class ArgOpt(BaseArg, ReducerMixin):
     _choices: Optional[Iterable[str]]
 
     def __init__(self,
-                 *aliases,
-                 type_: TypingType,
-                 name: Optional[str] = None,
+                 name: str,
+                 *aliases: str,
+                 type_: TypingType = str,
                  processor: Optional[ProcessorFn] = None,
                  default: ArgDefaultType = MISSING,
                  description: Optional[str] = None,
@@ -172,7 +172,6 @@ class ArgOpt(BaseArg, ReducerMixin):
                  reducer: Optional[ArgReducer] = None,
                  ):
 
-        name = name or get_name_from_aliases(aliases)
         super().__init__(name, type_, processor, description)
         self._set_reducer(reducer)
 
@@ -200,16 +199,15 @@ class ArgFlag(BaseArg):
     _set_value: Any
 
     def __init__(self,
-                 *aliases,
+                 name: str,
+                 *aliases: str,
                  set_value: Any,
                  default: Any,
-                 name: Optional[str] = None,
                  type_: TypingType = bool,
                  processor: Optional[ProcessorFn] = None,
                  description: Optional[str] = None,
                  ):
 
-        name = name or get_name_from_aliases(aliases)
         super().__init__(name, type_, processor, description)
         self._aliases = aliases
         self._default = default

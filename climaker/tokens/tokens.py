@@ -6,7 +6,7 @@ __all__ = [
     'Token',
     'WordToken',
     'FlagToken',
-    'FlagStopToken',
+    # 'FlagStopToken',
 ]
 
 
@@ -15,11 +15,11 @@ class Token:
     def into_flag(self) -> Optional[FlagToken]:
         return None
 
-    def into_flag_stop(self) -> Optional[FlagStopToken]:
-        return None
-
     def into_word(self) -> Optional[WordToken]:
         return None
+
+    # def into_flag_stop(self) -> Optional[FlagStopToken]:
+    #     return None
 
 
 class FlagToken(Token):
@@ -37,11 +37,21 @@ class FlagToken(Token):
     def into_flag(self) -> Optional[FlagToken]:
         return self
 
+    def __repr__(self):
+        repr_str = f'FlagToken({self._name}'
 
-class FlagStopToken(Token):
+        if self._value is not None:
+            repr_str += f'={self._value!r})'
+        else:
+            repr_str += ')'
 
-    def into_flag_stop(self) -> Optional[FlagStopToken]:
-        return self
+        return repr_str
+
+
+# class FlagStopToken(Token):
+#
+#     def into_flag_stop(self) -> Optional[FlagStopToken]:
+#         return self
 
 
 class WordToken(Token):
@@ -54,3 +64,6 @@ class WordToken(Token):
 
     def into_word(self) -> Optional[WordToken]:
         return self
+
+    def __repr__(self):
+        return f'WordToken({self._value!r})'

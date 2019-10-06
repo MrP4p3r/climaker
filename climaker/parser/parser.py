@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import Optional, List, Union
+from typing import Optional, Union, Sequence
 
-from climaker.tokenizer import FlagToken, WordToken
+from climaker.interface import IParser
+from climaker.tokens import Token, FlagToken, WordToken
 from climaker.spec import Command, ArgOpt, ArgFlag, ArgPos
+from climaker.util import Walker, into_identifier
 
-from .token_walker import TokenWalker
 from .parse_result import ParserResult
 from .exceptions import *
 
@@ -14,29 +15,27 @@ __all__ = [
 ]
 
 
-class TokenParser:
+class TokenParser(IParser[Token, ParserResult]):
 
     def __init__(self, command: Command, parent: Optional[TokenParser] = None):
         self._command = command
         self._parent = parent
-
-        self._positionals_stack = SpecOps.list_positionals(self._command)
-        self._current_positional = None
-
         self._consumed = {}
+        self._state = CommandParseState(self._command)
 
-    def consume(self, walker: TokenWalker) -> ParserResult:
+    def parse(self, tokens: Sequence[Token]) -> ParserResult:
+        return self.consume(Walker(tokens))
+
+    def consume(self, walker: Walker[Token]) -> ParserResult:
         try:
             while walker.lookup():
                 token = walker.next()
-                if token.into_flag_stop():
-                    continue
-                elif token.into_flag():
+                if token.into_flag():
                     self.consume_flag(token.into_flag(), walker)
                 elif token.into_word():
                     word = token.into_word()
                     if self._command.has_subcommands():
-                        subcommand = self._get_subcommand(word.get_value())
+                        subcommand = self._state.get_subcommand(word.get_value())
                         if not subcommand:
                             raise UnknownSubcommandError(word.get_value())
 
@@ -59,9 +58,9 @@ class TokenParser:
             return ParserResult(name=self._command.name,
                                 args=self._consumed)
 
-    def consume_flag(self, flag_token: FlagToken, walker: TokenWalker):
+    def consume_flag(self, flag_token: FlagToken, walker: Walker[Token]):
         alias = flag_token.get_name()
-        flag_or_opt = self._get_flag_or_opt(alias)
+        flag_or_opt = self._state.get_flag_or_opt(alias)
 
         if not flag_or_opt:
             if not self._parent:
@@ -73,8 +72,6 @@ class TokenParser:
             opt = flag_or_opt
             opt_value = flag_token.get_value()
             if opt_value is None:
-                while walker.lookup() and walker.lookup().into_flag_stop():
-                    walker.next()
                 if not walker.lookup() or not walker.lookup().into_word():
                     raise ExpectedOptionValueError(flag_token, walker.lookup())
                 word = walker.next().into_word()
@@ -95,8 +92,8 @@ class TokenParser:
         else:
             raise RuntimeError('Totally unexpected error')
 
-    def consume_word(self, word: WordToken, walker: TokenWalker):
-        positional: ArgPos = self._get_current_positional()
+    def consume_word(self, word: WordToken, walker: Walker[Token]):
+        positional: ArgPos = self._state.get_current_positional()
         if not positional:
             raise UnexpectedPositionalError(word)
 
@@ -110,7 +107,7 @@ class TokenParser:
         except TypeError:
             pass
 
-        positional: ArgPos = self._get_next_positional()
+        positional: ArgPos = self._state.get_next_positional()
         if not positional:
             raise UnexpectedPositionalError(word)
 
@@ -119,33 +116,38 @@ class TokenParser:
             positional.processor(word.get_value())
         )
 
-    def _get_subcommand(self, name: str) -> Command:
-        for subcommand in self._command.subcommands:
-            if subcommand.name == name:
-                return subcommand
 
-    def _get_flag_or_opt(self, alias: str) -> Optional[Union[ArgFlag, ArgOpt]]:
-        for arg in self._command.arguments:
-            if isinstance(arg, (ArgFlag, ArgOpt)) and (arg.name == alias or alias in arg.aliases):
-                return arg
+class CommandParseState:
 
-    def _get_current_positional(self) -> Optional[ArgPos]:
-        if not self._current_positional:
-            self._current_positional = self._get_next_positional()
-        return self._current_positional
+    def __init__(self, command: Command):
+        self._command = command
 
-    def _get_next_positional(self) -> Optional[ArgPos]:
-        if len(self._positionals_stack):
-            return self._positionals_stack.pop(0)
-
-
-class SpecOps:
-
-    @staticmethod
-    def list_positionals(command: Command) -> List[ArgPos]:
         positionals = []
+        flags_and_opts = {}
         for arg in command.arguments:
             if isinstance(arg, ArgPos):
                 positionals.append(arg)
+            elif isinstance(arg, (ArgFlag, ArgOpt)):
+                flags_and_opts[arg.name] = arg
+                for alias in arg.aliases:
+                    flags_and_opts[alias] = arg
 
-        return positionals
+        self._positionals = Walker(positionals)
+        self._flags_and_opts = flags_and_opts
+
+    def get_current_positional(self) -> Optional[ArgPos]:
+        return self._positionals.current() or self._positionals.next()
+
+    def get_next_positional(self) -> Optional[ArgPos]:
+        return self._positionals.next()
+
+    def get_flag_or_opt(self, alias: str) -> Optional[Union[ArgFlag, ArgOpt]]:
+        return self._flags_and_opts.get(into_identifier(alias))
+
+    def has_subcommands(self) -> bool:
+        return self._command.has_subcommands()
+
+    def get_subcommand(self, name: str) -> Optional[Command]:
+        for subcommand in self._command.subcommands:
+            if subcommand.name == name:
+                return subcommand
