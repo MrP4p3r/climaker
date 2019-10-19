@@ -8,9 +8,12 @@ readme = "README.md"
 homepage = "https://github.com/MrP4p3r/climaker"
 repository = "https://github.com/MrP4p3r/climaker"
 classifiers = [
-    'Programming Language :: Python :: 3',
-    'License :: OSI Approved :: MIT License',
-    'Topic :: Software Development :: User Interfaces'
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: User Interfaces"
+]
+packages = [
+    { include = "climaker", from = "." }
 ]
 
 [tool.poetry.dependencies]
