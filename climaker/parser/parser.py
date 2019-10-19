@@ -6,7 +6,7 @@ from climaker.tokens import Token, FlagToken, WordToken
 from climaker.argdef import Command, ArgOpt, ArgFlag, ArgPos
 from climaker.util import Walker, into_identifier
 
-from .parse_result import ParserResult
+from .result import *
 from .exceptions import *
 
 
@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-class TokenParser(IParser[Token, ParserResult]):
+class TokenParser(IParser[Token, TokenParsingResult]):
 
     def __init__(self, command: Command, parent: Optional[TokenParser] = None):
         self._command = command
@@ -23,10 +23,10 @@ class TokenParser(IParser[Token, ParserResult]):
         self._consumed = {}
         self._state = CommandParseState(self._command)
 
-    def parse(self, tokens: Sequence[Token]) -> ParserResult:
+    def parse(self, tokens: Sequence[Token]) -> TokenParsingResult:
         return self.consume(Walker(tokens))
 
-    def consume(self, walker: Walker[Token]) -> ParserResult:
+    def consume(self, walker: Walker[Token]) -> TokenParsingResult:
         try:
             while walker.lookup():
                 token = walker.next()
@@ -42,21 +42,19 @@ class TokenParser(IParser[Token, ParserResult]):
                         subconsumer = TokenParser(subcommand, self)
                         subcommand_parse_result = subconsumer.consume(walker)
                         if subcommand_parse_result.error:
-                            return ParserResult(name=self._command.name,
-                                                error=ParseSubcommandError(subcommand.name),
-                                                child=subcommand_parse_result)
+                            return TokenParsingResult(name=self._command.name,
+                                                      error=SubcommandParsingError(subcommand.name),
+                                                      child=subcommand_parse_result)
                         else:
-                            return ParserResult(name=self._command.name,
-                                                args=self._consumed,
-                                                child=subcommand_parse_result)
+                            return TokenParsingResult(name=self._command.name,
+                                                      args=self._consumed,
+                                                      child=subcommand_parse_result)
                     else:
                         self.consume_word(word, walker)
-        except TokenParserError as err:
-            return ParserResult(name=self._command.name,
-                                error=err)
+        except TokenParsingError as err:
+            return TokenParsingResult(name=self._command.name, error=err)
         else:
-            return ParserResult(name=self._command.name,
-                                args=self._consumed)
+            return TokenParsingResult(name=self._command.name, args=self._consumed)
 
     def consume_flag(self, flag_token: FlagToken, walker: Walker[Token]):
         alias = flag_token.get_name()

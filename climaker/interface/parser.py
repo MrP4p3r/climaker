@@ -1,6 +1,5 @@
-from typing import Generic, Iterable
+from typing import Generic, TypeVar, Sequence
 from abc import abstractmethod
-from .typevars import TToken, TParseResult
 
 
 __all__ = [
@@ -8,8 +7,12 @@ __all__ = [
 ]
 
 
-class IParser(Generic[TToken, TParseResult]):
+T = TypeVar('T')  # Token type
+P = TypeVar('P')  # Parsing result
+
+
+class IParser(Generic[T, P]):
 
     @abstractmethod
-    def parse(self, tokens: Iterable[TToken]) -> TParseResult:
+    def parse(self, tokens: Sequence[T]) -> P:
         ...

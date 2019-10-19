@@ -11,7 +11,7 @@ from climaker.parser import (
     UnexpectedAssignmentError,
     UnexpectedPositionalError,
     UnknownSubcommandError,
-    ParseSubcommandError,
+    SubcommandParsingError,
 )
 
 
@@ -115,5 +115,5 @@ def test_unexpected_positional_argument(parser, tokens):
     result = parser.parse(list(tokens) + [
         WordToken('extra positional')
     ])
-    assert isinstance(result.error, ParseSubcommandError)
+    assert isinstance(result.error, SubcommandParsingError)
     assert isinstance(result.child.error, UnexpectedPositionalError)

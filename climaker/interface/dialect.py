@@ -1,6 +1,5 @@
 from abc import abstractmethod
-from typing import Generic, Optional, Iterable, List
-from .typevars import TToken, TCommand
+from typing import Generic, TypeVar, Optional, Iterable, Sequence
 
 
 __all__ = [
@@ -8,10 +7,14 @@ __all__ = [
 ]
 
 
-class IDialect(Generic[TCommand, TToken]):
+C = TypeVar('C')  # Command type
+T = TypeVar('T')  # Token type
+
+
+class IDialect(Generic[C, T]):
 
     @abstractmethod
-    def tokenize(self, args: Iterable[str]) -> List[TToken]:
+    def tokenize(self, args: Iterable[str]) -> Sequence[T]:
         """
         Convert CLI arguments into tokens.
 
@@ -20,7 +23,7 @@ class IDialect(Generic[TCommand, TToken]):
     @abstractmethod
     def format_help(
             self,
-            command: TCommand,
+            command: C,
             subcommand_path: Iterable[str] = (),
             error: Optional[str] = None,
             short: bool = False,

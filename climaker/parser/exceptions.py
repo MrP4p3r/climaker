@@ -2,31 +2,31 @@ from climaker.tokens import Token, FlagToken, WordToken
 
 
 __all__ = [
-    'TokenParserError',
+    'TokenParsingError',
     'UnexpectedFlagOptError',
     'ExpectedOptionValueError',
     'UnexpectedAssignmentError',
     'UnexpectedPositionalError',
     'UnknownSubcommandError',
-    'ParseSubcommandError',
+    'SubcommandParsingError',
 ]
 
 
-class TokenParserError(BaseException):
+class TokenParsingError(BaseException):
 
     @property
     def message(self) -> str:
         return self.args[0]
 
 
-class UnexpectedFlagOptError(TokenParserError):
+class UnexpectedFlagOptError(TokenParsingError):
 
     def __init__(self, flag_token: FlagToken):
         super().__init__(f'Unexpected flag/option {flag_token!r}')
         self.flag_token = flag_token
 
 
-class ExpectedOptionValueError(TokenParserError):
+class ExpectedOptionValueError(TokenParsingError):
 
     def __init__(self, flag_token: FlagToken, token_found: Token):
         super().__init__(f'Expected a value for option {flag_token!r}, found {token_found!r}')
@@ -34,28 +34,28 @@ class ExpectedOptionValueError(TokenParserError):
         self.token_found = token_found
 
 
-class UnexpectedAssignmentError(TokenParserError):
+class UnexpectedAssignmentError(TokenParsingError):
 
     def __init__(self, flag_token: FlagToken):
         super().__init__(f'Unexpected assignment in {flag_token!r}')
         self.flag_token = flag_token
 
 
-class UnexpectedPositionalError(TokenParserError):
+class UnexpectedPositionalError(TokenParsingError):
 
     def __init__(self, word_token: WordToken):
         super().__init__(f'Unexpected positional argument {word_token!r}')
         self.word_token = word_token
 
 
-class UnknownSubcommandError(TokenParserError):
+class UnknownSubcommandError(TokenParsingError):
 
     def __init__(self, subcommand_name: str):
         super().__init__(f'Unknown subcommand {subcommand_name!r}')
         self.subcommand_name = subcommand_name
 
 
-class ParseSubcommandError(TokenParserError):
+class SubcommandParsingError(TokenParsingError):
 
     def __init__(self, subcommand_name: str):
         super().__init__(f'Error while parsing subcommand {subcommand_name!r}')
