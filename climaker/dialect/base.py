@@ -9,6 +9,11 @@ from .shared import Token, TokenParser, Finalizer
 from .interfaces import IDialect
 
 
+__all__ = [
+    'BaseDialect',
+]
+
+
 class BaseDialect(IDialect, ABC):
 
     def parse(self, command: Command, args: Iterable[str]) -> Result[ArgTree, CliError]:
