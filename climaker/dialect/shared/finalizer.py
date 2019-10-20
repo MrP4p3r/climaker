@@ -3,7 +3,6 @@ from typing import Any, Optional, Mapping
 from climaker.util import Result, Err, Ok
 from climaker.types import ArgTree, CliError
 from climaker.argdef import Command
-from climaker.finalizer import IFinalizer
 
 
 __all__ = [
@@ -11,7 +10,7 @@ __all__ = [
 ]
 
 
-class Finalizer(IFinalizer):
+class Finalizer:
 
     def finalize(self, command: Command, arg_tree: ArgTree) -> Result[ArgTree, CliError]:
         result = self._finalize_args(command, arg_tree.args)
