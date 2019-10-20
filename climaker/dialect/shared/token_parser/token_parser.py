@@ -2,9 +2,9 @@ from __future__ import annotations
 from typing import Optional, Union, Sequence
 
 from climaker.argdef import Command, ArgOpt, ArgFlag, ArgPos
-from climaker.dialect.shared import Token, FlagToken, WordToken
 from climaker.util import Walker, into_identifier
 
+from .tokens import *
 from .result import *
 from .exceptions import *
 

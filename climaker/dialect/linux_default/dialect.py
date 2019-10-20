@@ -3,7 +3,7 @@ from typing import Iterable
 from climaker.types import CliError, ArgTree
 from climaker.argdef import Command
 from climaker.dialect import IDialect
-from climaker.parser import TokenParser
+from climaker.dialect.shared import TokenParser
 from climaker.util import Result, Ok, get_words
 
 from .tokenizer import DefaultLinuxTokenizer
