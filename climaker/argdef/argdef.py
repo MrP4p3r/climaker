@@ -6,7 +6,7 @@ from typing import (
     Iterable, Sequence, List,
 )
 
-from climaker.interface import ProcessorFn, ArgReducer
+from .interfaces import ProcessorFn, ArgReducer
 from .reducer import singleargument
 
 

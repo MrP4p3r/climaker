@@ -1,5 +1,5 @@
 from typing import Any
-from climaker.interface import ArgReducer
+from .interfaces import ArgReducer
 
 
 __all__ = [
