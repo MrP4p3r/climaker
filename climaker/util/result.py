@@ -29,12 +29,10 @@ class Result(Generic[T, E]):
 
     @classmethod
     def Ok(cls, value: T) -> Result[T, E]:  # noqa
-        assert value is not None, 'Ok value cannot be None'
         return cls._new(_Some(value), _Null())
 
     @classmethod
     def Err(cls, error: E) -> Result[T, E]:  # noqa
-        assert error is not None, 'Error value cannot be None'
         return cls._new(_Null(), _Some(error))
 
     def __init__(self) -> None:
