@@ -1,9 +1,8 @@
 from __future__ import annotations
 from typing import Optional, Union, Sequence
 
-from climaker.interface import IParser
-from climaker.tokens import Token, FlagToken, WordToken
 from climaker.argdef import Command, ArgOpt, ArgFlag, ArgPos
+from climaker.dialect.shared import Token, FlagToken, WordToken
 from climaker.util import Walker, into_identifier
 
 from .result import *
@@ -15,23 +14,23 @@ __all__ = [
 ]
 
 
-class TokenParser(IParser[Token, TokenParsingResult]):
+class TokenParser:
 
     def __init__(self, command: Command, parent: Optional[TokenParser] = None):
         self._command = command
         self._parent = parent
         self._consumed = {}
-        self._state = CommandParseState(self._command)
+        self._state = _CommandParseState(self._command)
 
     def parse(self, tokens: Sequence[Token]) -> TokenParsingResult:
-        return self.consume(Walker(tokens))
+        return self._consume(Walker(tokens))
 
-    def consume(self, walker: Walker[Token]) -> TokenParsingResult:
+    def _consume(self, walker: Walker[Token]) -> TokenParsingResult:
         try:
             while walker.lookup():
                 token = walker.next()
                 if token.into_flag():
-                    self.consume_flag(token.into_flag(), walker)
+                    self._consume_flag(token.into_flag(), walker)
                 elif token.into_word():
                     word = token.into_word()
                     if self._command.has_subcommands():
@@ -40,7 +39,7 @@ class TokenParser(IParser[Token, TokenParsingResult]):
                             raise UnknownSubcommandError(word.get_value())
 
                         subconsumer = TokenParser(subcommand, self)
-                        subcommand_parse_result = subconsumer.consume(walker)
+                        subcommand_parse_result = subconsumer._consume(walker)
                         if subcommand_parse_result.error:
                             return TokenParsingResult(name=self._command.name,
                                                       error=SubcommandParsingError(subcommand.name),
@@ -50,13 +49,13 @@ class TokenParser(IParser[Token, TokenParsingResult]):
                                                       args=self._consumed,
                                                       child=subcommand_parse_result)
                     else:
-                        self.consume_word(word, walker)
+                        self._consume_word(word, walker)
         except TokenParsingError as err:
             return TokenParsingResult(name=self._command.name, error=err)
         else:
             return TokenParsingResult(name=self._command.name, args=self._consumed)
 
-    def consume_flag(self, flag_token: FlagToken, walker: Walker[Token]):
+    def _consume_flag(self, flag_token: FlagToken, walker: Walker[Token]):
         alias = flag_token.get_name()
         flag_or_opt = self._state.get_flag_or_opt(alias)
 
@@ -64,7 +63,7 @@ class TokenParser(IParser[Token, TokenParsingResult]):
             if not self._parent:
                 raise UnexpectedFlagOptError(flag_token)
             else:
-                self._parent.consume_flag(flag_token, walker)
+                self._parent._consume_flag(flag_token, walker)
 
         elif isinstance(flag_or_opt, ArgOpt):
             opt = flag_or_opt
@@ -90,7 +89,7 @@ class TokenParser(IParser[Token, TokenParsingResult]):
         else:
             raise RuntimeError('Totally unexpected error')
 
-    def consume_word(self, word: WordToken, walker: Walker[Token]):
+    def _consume_word(self, word: WordToken, walker: Walker[Token]):
         positional: ArgPos = self._state.get_current_positional()
         if not positional:
             raise UnexpectedPositionalError(word)
@@ -115,7 +114,7 @@ class TokenParser(IParser[Token, TokenParsingResult]):
         )
 
 
-class CommandParseState:
+class _CommandParseState:
 
     def __init__(self, command: Command):
         self._command = command

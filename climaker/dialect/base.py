@@ -3,11 +3,10 @@ from typing import Iterable, Sequence
 
 from climaker.argdef import Command
 from climaker.types import ArgTree, CliError
-from climaker.tokens import Token
-from climaker.parser import TokenParser
 from climaker.finalizer import Finalizer
 from climaker.util import Result, Ok, Err
 
+from .shared import Token, TokenParser
 from .interfaces import IDialect
 
 
