@@ -1,12 +1,12 @@
 from __future__ import annotations
 from typing import Optional, Union, Sequence
 
+from climaker.types import ArgTree, CliError
 from climaker.argdef import Command, ArgOpt, ArgFlag, ArgPos
-from climaker.util import Walker, into_identifier
+from climaker.util import Walker, Result, Ok, Err, into_identifier
 
 from .tokens import *
-from .result import *
-from .exceptions import *
+from .errors import *
 
 
 __all__ = [
@@ -22,55 +22,65 @@ class TokenParser:
         self._consumed = {}
         self._state = _CommandParseState(self._command)
 
-    def parse(self, tokens: Sequence[Token]) -> TokenParsingResult:
-        return self._consume(Walker(tokens))
-
-    def _consume(self, walker: Walker[Token]) -> TokenParsingResult:
+    def parse(self, tokens: Sequence[Token]) -> Result[ArgTree, CliError]:
         try:
-            while walker.lookup():
-                token = walker.next()
-                if token.into_flag():
-                    self._consume_flag(token.into_flag(), walker)
-                elif token.into_word():
-                    word = token.into_word()
-                    if self._command.has_subcommands():
-                        subcommand = self._state.get_subcommand(word.get_value())
-                        if not subcommand:
-                            raise UnknownSubcommandError(word.get_value())
+            return self._consume(Walker(tokens))
+        except Exception as exc:
+            return Err(FailedWithException(exc))
 
-                        subconsumer = TokenParser(subcommand, self)
-                        subcommand_parse_result = subconsumer._consume(walker)
-                        if subcommand_parse_result.error:
-                            return TokenParsingResult(name=self._command.name,
-                                                      error=SubcommandParsingError(subcommand.name),
-                                                      child=subcommand_parse_result)
-                        else:
-                            return TokenParsingResult(name=self._command.name,
-                                                      args=self._consumed,
-                                                      child=subcommand_parse_result)
+    def _consume(self, walker: Walker[Token]) -> Result[ArgTree, CliError]:
+        while token := walker.next():
+
+            if flag_token := token.into_flag():
+                consume_result = self._consume_flag(flag_token, walker)
+                if consume_result.is_err():
+                    return Err(consume_result.unwrap_err())
+
+            elif word_token := token.into_word():
+                if self._command.has_subcommands():
+                    if not (subcommand := self._state.get_subcommand(word_token.get_value())):
+                        return Err(UnknownSubcommand(word_token.get_value()))
+
+                    subparser = TokenParser(subcommand, parent=self)
+                    subcommand_parse_result = subparser._consume(walker)
+                    if subcommand_parse_result.is_err():
+                        return Err(SubcommandParsingError(
+                            subcommand.name,
+                            subcommand_parse_result.unwrap_err(),
+                        ))
                     else:
-                        self._consume_word(word, walker)
-        except TokenParsingError as err:
-            return TokenParsingResult(name=self._command.name, error=err)
-        else:
-            return TokenParsingResult(name=self._command.name, args=self._consumed)
+                        return Ok(ArgTree(
+                            name=self._command.name,
+                            args=self._consumed,
+                            child=subcommand_parse_result.unwrap(),
+                        ))
 
-    def _consume_flag(self, flag_token: FlagToken, walker: Walker[Token]):
+                consume_result = self._consume_word(word_token, walker)
+                if consume_result.is_err():
+                    return Err(consume_result.unwrap_err())
+
+        return Ok(ArgTree(
+            name=self._command.name,
+            args=self._consumed,
+        ))
+
+    def _consume_flag(self, flag_token: FlagToken, walker: Walker[Token]) -> Result[None, CliError]:
         alias = flag_token.get_name()
         flag_or_opt = self._state.get_flag_or_opt(alias)
 
         if not flag_or_opt:
             if not self._parent:
-                raise UnexpectedFlagOptError(flag_token)
-            else:
-                self._parent._consume_flag(flag_token, walker)
+                return Err(UnexpectedFlagOpt(flag_token))
+
+            self._parent._consume_flag(flag_token, walker)
 
         elif isinstance(flag_or_opt, ArgOpt):
             opt = flag_or_opt
             opt_value = flag_token.get_value()
             if opt_value is None:
                 if not walker.lookup() or not walker.lookup().into_word():
-                    raise ExpectedOptionValueError(flag_token, walker.lookup())
+                    return Err(ExpectedOptionValue(flag_token, walker.lookup()))
+
                 word = walker.next().into_word()
                 opt_value = word.get_value()
 
@@ -82,17 +92,18 @@ class TokenParser:
         elif isinstance(flag_or_opt, ArgFlag):
             flag = flag_or_opt
             if flag_token.get_value():
-                raise UnexpectedAssignmentError(flag_token)
+                return Err(UnexpectedAssignment(flag_token))
 
             self._consumed[flag.name] = flag.set_value
 
         else:
             raise RuntimeError('Totally unexpected error')
 
-    def _consume_word(self, word: WordToken, walker: Walker[Token]):
-        positional: ArgPos = self._state.get_current_positional()
-        if not positional:
-            raise UnexpectedPositionalError(word)
+        return Ok(None)
+
+    def _consume_word(self, word: WordToken, walker: Walker[Token]) -> Result[None, CliError]:
+        if not (positional := self._state.get_current_positional()):
+            return Err(UnexpectedPositional(word))
 
         # if can accept args
         try:
@@ -100,18 +111,21 @@ class TokenParser:
                 self._consumed.get(positional.name),
                 positional.processor(word.get_value())
             )
-            return
+            return Ok(None)
         except TypeError:
             pass
 
-        positional: ArgPos = self._state.get_next_positional()
-        if not positional:
-            raise UnexpectedPositionalError(word)
+        if not (positional := self._state.get_next_positional()):
+            return Err(UnexpectedPositional(word))
 
-        self._consumed[positional.name] = positional.reducer(
-            self._consumed.get(positional.name),
-            positional.processor(word.get_value())
-        )
+        try:
+            self._consumed[positional.name] = positional.reducer(
+                self._consumed.get(positional.name),
+                positional.processor(word.get_value())
+            )
+            return Ok(None)
+        except TypeError:
+            return Err(UnexpectedPositional(word))
 
 
 class _CommandParseState:
