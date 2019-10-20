@@ -1,22 +1,14 @@
-from typing import Iterable
+from typing import Iterable, Sequence
 
-from climaker.types import CliError, ArgTree
+from climaker.types import CliError
 from climaker.argdef import Command
-from climaker.dialect import IDialect
-from climaker.dialect.shared import TokenParser
-from climaker.util import Result, Ok, get_words
+from climaker.dialect import BaseDialect, Token
+from climaker.util import get_words
 
 from .tokenizer import DefaultLinuxTokenizer
 
 
-class DefaultLinuxDialect(IDialect):
-
-    def parse(self, command: Command, args: Iterable[str]) -> Result[ArgTree, CliError]:
-        tokenizer = DefaultLinuxTokenizer()
-        tokens = tokenizer.tokenize_args(args)
-
-        parser = TokenParser(command)
-        return Ok(parser.parse(tokens))
+class DefaultLinuxDialect(BaseDialect):
 
     def format_help(self, command: Command, subcommand: str) -> str:
         # TODO
@@ -25,6 +17,9 @@ class DefaultLinuxDialect(IDialect):
     def format_error(self, cli_error: CliError) -> str:
         # TODO
         return f'Error: {cli_error!r}'
+
+    def _tokenize(self, command: Command, args: Iterable[str]) -> Sequence[Token]:
+        return DefaultLinuxTokenizer().tokenize_args(args)
 
     @staticmethod
     def _format_flag(identifier_name: str) -> str:
