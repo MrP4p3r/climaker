@@ -1,37 +1,33 @@
-from io import StringIO
-from typing import Iterable, List, Optional
+from typing import Iterable
 
-from climaker.interface import IDialect
-
+from climaker.types import CliError, ArgTree
 from climaker.argdef import Command
-from climaker.tokens import Token
-from climaker.util import get_words
+from climaker.dialect import IDialect
+from climaker.parser import TokenParser
+from climaker.util import Result, Ok, get_words
 
 from .tokenizer import DefaultLinuxTokenizer
 
 
-class DefaultLinuxDialect(IDialect[Command, Token]):
+class DefaultLinuxDialect(IDialect):
 
-    def tokenize(self, args: Iterable[str]) -> List[Token]:
+    def parse(self, command: Command, args: Iterable[str]) -> Result[ArgTree, CliError]:
         tokenizer = DefaultLinuxTokenizer()
-        return tokenizer.tokenize_args(args)
+        tokens = tokenizer.tokenize_args(args)
 
-    def format_help(self, command: Command, subcommand_path: Iterable[str] = (),
-                    error: Optional[str] = None, short: bool = False) -> str:
+        parser = TokenParser(command)
+        return Ok(parser.parse(tokens))
 
-        help_ = StringIO()
+    def format_help(self, command: Command, subcommand: str) -> str:
+        # TODO
+        return f'Usage: {command.name} ...'
 
-        if error:
-            help_.write(f'Error: {error}\n\n')
+    def format_error(self, cli_error: CliError) -> str:
+        # TODO
+        return f'Error: {cli_error!r}'
 
-        help_.writelines([
-            'Arguments:',
-            '# TODO',
-        ])
-
-        return help_.getvalue()
-
-    def format_flag(self, identifier_name: str) -> str:
+    @staticmethod
+    def _format_flag(identifier_name: str) -> str:
         if len(identifier_name) == 1:
             return '-{}'.format(identifier_name)
         else:
@@ -39,5 +35,6 @@ class DefaultLinuxDialect(IDialect[Command, Token]):
                 '-'.join(get_words(identifier_name))
             )
 
-    def format_word(self, identifier_name: str) -> str:
+    @staticmethod
+    def _format_word(identifier_name: str) -> str:
         return '_'.join(get_words(identifier_name)).upper()
