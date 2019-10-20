@@ -67,6 +67,11 @@ class Command:
     def has_subcommands(self) -> bool:
         return bool(self._subcommands)
 
+    def get_subcommand(self, subcommand_name: str) -> Optional[Command]:
+        for subcommand in self.subcommands:
+            if subcommand.name == subcommand_name:
+                return subcommand
+
 
 class BaseArg:
 
