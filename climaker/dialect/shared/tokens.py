@@ -6,7 +6,6 @@ __all__ = [
     'Token',
     'WordToken',
     'FlagToken',
-    # 'FlagStopToken',
 ]
 
 
@@ -17,9 +16,6 @@ class Token:
 
     def into_word(self) -> Optional[WordToken]:
         return None
-
-    # def into_flag_stop(self) -> Optional[FlagStopToken]:
-    #     return None
 
 
 class FlagToken(Token):
@@ -46,12 +42,6 @@ class FlagToken(Token):
             repr_str += ')'
 
         return repr_str
-
-
-# class FlagStopToken(Token):
-#
-#     def into_flag_stop(self) -> Optional[FlagStopToken]:
-#         return self
 
 
 class WordToken(Token):

@@ -1,7 +1,7 @@
 import re
 from typing import Optional, Iterable, List
 
-from climaker.tokens import *
+from climaker.dialect.shared import *
 
 
 __all__ = [
