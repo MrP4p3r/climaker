@@ -6,14 +6,13 @@ from typing import (
     Iterable, Sequence, List,
 )
 
-from .interfaces import ProcessorFn, ArgReducer
-from .reducer import singleargument
+from .interfaces import IValueReducer, IValueParser
+from .value_reducer import single_arg
 
 
 __all__ = [
     'Command',
-    'BaseArg', 'ReducerMixin',
-    'ArgPos', 'ArgOpt', 'ArgFlag',
+    'BaseArg', 'ArgPos', 'ArgOpt', 'ArgFlag',
     'get_name_from_aliases',
     'MISSING',
 ]
@@ -77,18 +76,21 @@ class BaseArg:
 
     _name: str
     _type: TypingType
-    _processor: ProcessorFn
+    _processor: IValueParser
+    _reducer: Optional[IValueReducer]
     _description: Optional[str]
 
     def __init__(self,
                  name: str,
                  type_: TypingType,
-                 processor: ProcessorFn,
+                 processor: Optional[IValueParser],
+                 reducer: Optional[IValueReducer],
                  description: Optional[str],
                  ):
         self._name = name
         self._type = type_
         self._processor = processor or str
+        self._reducer = reducer
         self._description = description
 
     @property
@@ -100,30 +102,19 @@ class BaseArg:
         return self._processor
 
     @property
-    def processor(self) -> ProcessorFn:
+    def processor(self) -> IValueParser:
         return self._processor
+
+    @property
+    def reducer(self) -> IValueReducer:
+        return self._reducer
 
     @property
     def description(self) -> Optional[str]:
         return self._description
 
 
-class ReducerMixin:
-
-    __reducer: Optional[ArgReducer]
-
-    def __init__(self):
-        self.__reducer = None
-
-    def _set_reducer(self, reducer: Optional[ArgReducer] = None):
-        self.__reducer = reducer or singleargument()
-
-    def reducer(self, acc: Any, value: str) -> Any:
-        assert self.__reducer is not None, f'Reducer is not set for {type(self).__name__}'
-        return self.__reducer(acc, value)
-
-
-class ArgPos(BaseArg, ReducerMixin):
+class ArgPos(BaseArg):
 
     _default: Any
     _help_name: str
@@ -132,16 +123,15 @@ class ArgPos(BaseArg, ReducerMixin):
     def __init__(self,
                  name: str, *,
                  type_: Type[TypingType] = str,
-                 processor: Optional[ProcessorFn] = None,
+                 processor: Optional[IValueParser] = None,
                  default: ArgDefaultType = MISSING,
                  help_name: Optional[str] = None,
                  description: Optional[str] = None,
                  choices: Optional[Iterable[str]] = None,
-                 reducer: Optional[ArgReducer] = None,
+                 reducer: Optional[IValueReducer] = None,
                  ):
 
-        super().__init__(name, type_, processor, description)
-        self._set_reducer(reducer)
+        super().__init__(name, type_, processor, reducer or single_arg(), description)
 
         self._default = default
         self._help_name = help_name or name
@@ -160,7 +150,7 @@ class ArgPos(BaseArg, ReducerMixin):
         return self._choices
 
 
-class ArgOpt(BaseArg, ReducerMixin):
+class ArgOpt(BaseArg):
 
     _default: Any
     _aliases: Iterable[str]
@@ -170,15 +160,14 @@ class ArgOpt(BaseArg, ReducerMixin):
                  name: str,
                  *aliases: str,
                  type_: TypingType = str,
-                 processor: Optional[ProcessorFn] = None,
+                 processor: Optional[IValueParser] = None,
                  default: ArgDefaultType = MISSING,
                  description: Optional[str] = None,
                  choices: Optional[Iterable] = None,
-                 reducer: Optional[ArgReducer] = None,
+                 reducer: Optional[IValueReducer] = None,
                  ):
 
-        super().__init__(name, type_, processor, description)
-        self._set_reducer(reducer)
+        super().__init__(name, type_, processor, reducer or single_arg(), description)
 
         self._aliases = aliases
         self._default = default
@@ -209,11 +198,12 @@ class ArgFlag(BaseArg):
                  set_value: Any,
                  default: Any,
                  type_: TypingType = bool,
-                 processor: Optional[ProcessorFn] = None,
+                 processor: Optional[IValueParser] = None,
+                 reducer: Optional[IValueReducer] = None,
                  description: Optional[str] = None,
                  ):
 
-        super().__init__(name, type_, processor, description)
+        super().__init__(name, type_, processor, reducer or single_arg(), description)
         self._aliases = aliases
         self._default = default
         self._set_value = set_value
