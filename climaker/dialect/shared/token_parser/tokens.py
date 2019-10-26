@@ -11,6 +11,12 @@ __all__ = [
 
 class Token:
 
+    def __init__(self, raw: str):
+        self._raw = raw
+
+    def get_raw(self) -> str:
+        return self._raw
+
     def into_flag(self) -> Optional[FlagToken]:
         return None
 
@@ -20,7 +26,8 @@ class Token:
 
 class FlagToken(Token):
 
-    def __init__(self, name: str, value: Optional[str] = None):
+    def __init__(self, raw: str, name: str, value: Optional[str] = None):
+        super().__init__(raw)
         self._name = name
         self._value = value
 
@@ -47,6 +54,7 @@ class FlagToken(Token):
 class WordToken(Token):
 
     def __init__(self, value: str):
+        super().__init__(value)
         self._value = value
 
     def get_value(self) -> str:

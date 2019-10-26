@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from collections import defaultdict
 from typing import Optional, Union, Sequence
 
 from climaker.types import ArgTree, CliError
@@ -19,7 +21,7 @@ class TokenParser:
     def __init__(self, command: Command, parent: Optional[TokenParser] = None):
         self._command = command
         self._parent = parent
-        self._consumed = {}
+        self._consumed = defaultdict(list)
         self._state = _CommandParseState(self._command)
 
     def parse(self, tokens: Sequence[Token]) -> Result[ArgTree, CliError]:
@@ -70,7 +72,7 @@ class TokenParser:
 
         if not flag_or_opt:
             if not self._parent:
-                return Err(UnexpectedFlagOpt(flag_token))
+                return Err(UnexpectedFlagOpt(flag_token.get_name()))
 
             self._parent._consume_flag(flag_token, walker)
 
@@ -78,23 +80,20 @@ class TokenParser:
             opt = flag_or_opt
             opt_value = flag_token.get_value()
             if opt_value is None:
-                if not walker.lookup() or not walker.lookup().into_word():
-                    return Err(ExpectedOptionValue(flag_token, walker.lookup()))
+                word = walker.next()
+                if not (found := (word and word.get_raw())):
+                    return Err(ExpectedOptionValue(flag_token.get_raw(), found))
 
-                word = walker.next().into_word()
                 opt_value = word.get_value()
 
-            self._consumed[opt.name] = opt.reducer(
-                self._consumed.get(opt.name),
-                opt.processor(opt_value),
-            )
+            self._consumed[opt.name].append(opt.processor.parse(opt_value))
 
         elif isinstance(flag_or_opt, ArgFlag):
             flag = flag_or_opt
             if flag_token.get_value():
-                return Err(UnexpectedAssignment(flag_token))
+                return Err(UnexpectedAssignment(flag_token.get_raw()))
 
-            self._consumed[flag.name] = flag.set_value
+            self._consumed[flag.name].append(flag.set_value)
 
         else:
             raise RuntimeError('Totally unexpected error')
@@ -103,29 +102,17 @@ class TokenParser:
 
     def _consume_word(self, word: WordToken, walker: Walker[Token]) -> Result[None, CliError]:
         if not (positional := self._state.get_current_positional()):
-            return Err(UnexpectedPositional(word))
+            return Err(UnexpectedPositional(word.get_value()))
 
-        # if can accept args
-        try:
-            self._consumed[positional.name] = positional.reducer(
-                self._consumed.get(positional.name),
-                positional.processor(word.get_value())
-            )
-            return Ok(None)
-        except TypeError:
-            pass
+        _, max_values = positional.reducer.get_value_number_range()
+        if len(self._consumed[positional.name]) >= max_values:
+            if not (positional := self._state.get_next_positional()):
+                return Err(UnexpectedPositional(word.get_value()))
 
-        if not (positional := self._state.get_next_positional()):
-            return Err(UnexpectedPositional(word))
+        value = positional.processor.parse(word.get_value())
+        self._consumed[positional.name].append(value)
 
-        try:
-            self._consumed[positional.name] = positional.reducer(
-                self._consumed.get(positional.name),
-                positional.processor(word.get_value())
-            )
-            return Ok(None)
-        except TypeError:
-            return Err(UnexpectedPositional(word))
+        return Ok(None)
 
 
 class _CommandParseState:

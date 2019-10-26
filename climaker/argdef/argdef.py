@@ -8,6 +8,7 @@ from typing import (
 
 from .interfaces import IValueReducer, IValueParser
 from .value_reducer import single_arg
+from .value_parser import FnParser
 
 
 __all__ = [
@@ -89,7 +90,7 @@ class BaseArg:
                  ):
         self._name = name
         self._type = type_
-        self._processor = processor or str
+        self._processor = processor or FnParser(str)
         self._reducer = reducer
         self._description = description
 
@@ -136,6 +137,9 @@ class ArgPos(BaseArg):
         self._default = default
         self._help_name = help_name or name
         self._choices = list(choices) if choices else None
+
+        assert self.processor.get_word_number_range()[0] == 1, 'Positional value parser must require at least one word'
+        assert self.processor.get_word_number_range()[1] == 1, 'Multiple-word positionals are not allowed yet'
 
     @property
     def default(self) -> Any:

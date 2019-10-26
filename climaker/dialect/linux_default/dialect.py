@@ -2,9 +2,10 @@ from typing import Iterable, Sequence
 
 from climaker.types import CliError
 from climaker.argdef import Command
-from climaker.dialect import BaseDialect, Token
 from climaker.util import get_words
 
+from ..base import BaseDialect
+from ..shared import Token
 from .tokenizer import DefaultLinuxTokenizer
 
 

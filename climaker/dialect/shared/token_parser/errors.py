@@ -69,5 +69,5 @@ class UnexpectedPositional(ParsingError):
 
     positional: Final[str]
 
-    def __init__(self, positional):
+    def __init__(self, positional: str):
         self.positional = positional

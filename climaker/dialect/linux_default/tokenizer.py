@@ -79,7 +79,7 @@ class DefaultLinuxTokenizer:
             if match.group(2):
                 flag_value = match.group(3)
 
-            return [FlagToken(name=normalize_identifier(flag_name), value=flag_value)]
+            return [FlagToken(arg, name=normalize_identifier(flag_name), value=flag_value)]
 
     @classmethod
     def _try_short_flag_pattern(cls, arg: str) -> Optional[List[Token]]:
@@ -88,14 +88,14 @@ class DefaultLinuxTokenizer:
             result = []
             flags = match.group(1)
             for flag_name in flags[:-1]:
-                result.append(FlagToken(name=normalize_identifier(flag_name)))
+                result.append(FlagToken(arg, name=normalize_identifier(flag_name)))
 
             last_flag_name = flags[-1]
             last_flag_value = None
             if match.group(2):
                 last_flag_value = match.group(3)
 
-            result.append(FlagToken(name=normalize_identifier(last_flag_name), value=last_flag_value))
+            result.append(FlagToken(arg, name=normalize_identifier(last_flag_name), value=last_flag_value))
             return result
 
 
