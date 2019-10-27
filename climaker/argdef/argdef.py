@@ -15,13 +15,20 @@ __all__ = [
     'Command',
     'BaseArg', 'ArgPos', 'ArgOpt', 'ArgFlag',
     'get_name_from_aliases',
-    'MISSING',
+    'Missing', 'missing',
 ]
 
 
 TypingType = TypeVar('TypingType')
-MISSING = object()
-ArgDefaultType = Union[str, TypingType, 'Literal[MISSING]']
+
+
+class Missing:
+    pass
+
+
+missing = Missing()
+RequiredDefaultType = Union[Any]
+DefaultType = Union[RequiredDefaultType, Missing]
 
 
 class Command:
@@ -50,14 +57,10 @@ class Command:
 
     @property
     def subcommands(self) -> Sequence[Command]:
-        if self._subcommands is None:
-            raise TypeError('Command is not a subcommands group')
         return self._subcommands
 
     @property
     def arguments(self) -> Sequence[BaseArg]:
-        if self._arguments is None:
-            raise TypeError('Command is not an arguments group')
         return self._arguments
 
     @property
@@ -66,6 +69,11 @@ class Command:
 
     def has_subcommands(self) -> bool:
         return bool(self._subcommands)
+
+    def get_argument(self, argument_name: str) -> Optional[BaseArg]:
+        for argument in self.arguments:
+            if argument.name == argument_name:
+                return argument
 
     def get_subcommand(self, subcommand_name: str) -> Optional[Command]:
         for subcommand in self.subcommands:
@@ -125,7 +133,7 @@ class ArgPos(BaseArg):
                  name: str, *,
                  type_: Type[TypingType] = str,
                  processor: Optional[IValueParser] = None,
-                 default: ArgDefaultType = MISSING,
+                 default: DefaultType = missing,
                  help_name: Optional[str] = None,
                  description: Optional[str] = None,
                  choices: Optional[Iterable[str]] = None,
@@ -165,7 +173,7 @@ class ArgOpt(BaseArg):
                  *aliases: str,
                  type_: TypingType = str,
                  processor: Optional[IValueParser] = None,
-                 default: ArgDefaultType = MISSING,
+                 default: DefaultType = missing,
                  description: Optional[str] = None,
                  choices: Optional[Iterable] = None,
                  reducer: Optional[IValueReducer] = None,
@@ -200,7 +208,7 @@ class ArgFlag(BaseArg):
                  name: str,
                  *aliases: str,
                  set_value: Any,
-                 default: Any,
+                 default: RequiredDefaultType,
                  type_: TypingType = bool,
                  processor: Optional[IValueParser] = None,
                  reducer: Optional[IValueReducer] = None,
