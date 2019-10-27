@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Optional, Union, Sequence
+from typing import Optional, Union, Sequence, List
 
 from climaker.types import ArgTree, CliError
 from climaker.argdef import Command, ArgOpt, ArgFlag, ArgPos
@@ -71,41 +71,23 @@ class TokenParser:
         flag_or_opt = self._state.get_flag_or_opt(alias)
 
         if not flag_or_opt:
-            if not self._parent:
-                return Err(UnexpectedFlagOpt(flag_token.get_name()))
-
-            self._parent._consume_flag(flag_token, walker)
+            return self._on_flag_or_opt_not_found(flag_token, walker)
 
         elif isinstance(flag_or_opt, ArgOpt):
-            opt = flag_or_opt
-            opt_value = flag_token.get_value()
-            if opt_value is None:
-                word = walker.next()
-                if not (found := (word and word.get_raw())):
-                    return Err(ExpectedOptionValue(flag_token.get_raw(), found))
-
-                opt_value = word.get_value()
-
-            self._consumed[opt.name].append(opt.processor.parse(opt_value))
+            return self._consume_flag_argopt(flag_token, flag_or_opt, walker)
 
         elif isinstance(flag_or_opt, ArgFlag):
-            flag = flag_or_opt
-            if flag_token.get_value():
-                return Err(UnexpectedAssignment(flag_token.get_raw()))
-
-            self._consumed[flag.name].append(flag.set_value)
+            return self._consume_flag_argflag(flag_token, flag_or_opt)
 
         else:
             raise RuntimeError('Totally unexpected error')
-
-        return Ok(None)
 
     def _consume_word(self, word: WordToken, walker: Walker[Token]) -> Result[None, CliError]:
         if not (positional := self._state.get_current_positional()):
             return Err(UnexpectedPositional(word.get_value()))
 
         _, max_values = positional.reducer.get_value_number_range()
-        if len(self._consumed[positional.name]) >= max_values:
+        if max_values is not None and len(self._consumed[positional.name]) >= max_values:
             if not (positional := self._state.get_next_positional()):
                 return Err(UnexpectedPositional(word.get_value()))
 
@@ -113,6 +95,73 @@ class TokenParser:
         self._consumed[positional.name].append(value)
 
         return Ok(None)
+
+    def _on_flag_or_opt_not_found(self, flag_token: FlagToken, walker: Walker[Token]) -> Result[None, CliError]:
+        if not self._parent:
+            return Err(UnexpectedFlagOpt(flag_token.get_name()))
+
+        result = self._parent._consume_flag(flag_token, walker)
+        if result.is_err():
+            return Err(ParentCommandParsingError(result.unwrap_err()))
+
+        return Ok(None)
+
+    def _consume_flag_argopt(self, flag_token: FlagToken,
+                             opt: ArgOpt, walker: Walker[Token]) -> Result[None, CliError]:
+
+        min_words, max_words = opt.processor.get_word_number_range()
+
+        if max_words > 1:
+            if flag_token.get_value():
+                return Err(UnexpectedAssignment(flag_token.get_raw()))
+
+            get_words_result = self._get_words(walker, opt.name, min_words, max_words)
+            if get_words_result.is_err():
+                return Err(get_words_result.unwrap_err())
+
+            self._consumed[opt.name].append(opt.processor.parse(*(
+                word.get_value() for word in get_words_result.unwrap()
+            )))
+
+        else:
+            opt_value = flag_token.get_value()
+            if opt_value is None:
+                if not walker.lookup() or not walker.lookup().into_word():
+                    found = walker.lookup() and walker.lookup().get_raw()
+                    return Err(ExpectedOptionValue(flag_token.get_raw(), found))
+
+                opt_value = walker.next().into_word().get_value()
+
+            self._consumed[opt.name].append(opt.processor.parse(
+                opt_value
+            ))
+
+        return Ok(None)
+
+    def _consume_flag_argflag(self, flag_token: FlagToken,
+                              flag: ArgFlag) -> Result[None, CliError]:
+
+        if flag_token.get_value():
+            return Err(UnexpectedAssignment(flag_token.get_raw()))
+
+        self._consumed[flag.name].append(flag.set_value)
+        return Ok(None)
+
+    def _get_words(self, walker: Walker[Token], argument_name: str,
+                   min_words: int, max_words: Optional[int]) -> Result[List[WordToken], CliError]:
+        words = []
+        while True:
+            if not walker.lookup() or not walker.lookup().into_word():
+                break
+
+            words.append(walker.next().into_word())
+            if max_words is not None and len(words) >= max_words:
+                break
+
+        if len(words) < min_words:
+            return Err(InsufficientPositionalsNumber(argument_name, min_words))
+
+        return Ok(words)
 
 
 class _CommandParseState:

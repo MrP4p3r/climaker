@@ -62,7 +62,7 @@ class Finalizer:
         if min_values > len(arg_values):
             return Err(InsufficientArgumentValues(arg.name, min_values))
 
-        if max_values < len(arg_values):
+        if max_values is not None and max_values < len(arg_values):
             return Err(TooManyArgumentValues(arg.name, max_values))
 
         return Ok(arg.reducer.reduce(arg_values))
